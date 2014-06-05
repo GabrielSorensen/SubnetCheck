@@ -50,9 +50,14 @@ public class ips {
 			JOptionPane.showMessageDialog(
 					null, 
 					"This process may take a while. \nThis script also creates a small (<3Mb) folder to work in. \nResults can be found in "+ ROOT + SLASH + "[subnet]");
-			System.out.println(ROOT);
+			if (debugging) {
+				System.out.println(ROOT);
+			}
 			grabCMD();
-			setSubnet();
+			int g = setSubnet();
+			while (g!=5) {
+				g = setSubnet();
+			}
 			File file = new File(ROOT + "test.test");
 			file.createNewFile();
 			file.mkdirs();
@@ -63,15 +68,14 @@ public class ips {
 			io.printStackTrace();
 		}
 		isWMIC = false;
-		//		int g = JOptionPane.showConfirmDialog(null, "Would you like to process WMIC to check for static/dynamic settings?" , "WMIC?", JOptionPane.YES_NO_OPTION);
-		//		if (g==0) {
-		//			isWMIC = true;
-		//		} else {
-		//			isWMIC = false;
-		//		}
+		int g = JOptionPane.showConfirmDialog(null, "Would you like to process WMIC to check for static/dynamic settings?" , "WMIC?", JOptionPane.YES_NO_OPTION);
+		if (g==0) {
+			isWMIC = true;
+		} else {
+			isWMIC = false;
+		}
 		batch(isWMIC);
 		writeCSVtest();
-		//		writeCSV();
 		System.out.println("Done!");
 		int n = JOptionPane.showConfirmDialog(null, "Process Completed, try another subnet?" , "Finished", JOptionPane.YES_NO_OPTION);
 		//yes n=0 no n=1
@@ -112,7 +116,7 @@ public class ips {
 			e.printStackTrace();
 		}
 	}
-	public static void setSubnet() {
+	public static int setSubnet() {
 		try {
 			String SUB = "";
 			subnet = "";
@@ -129,14 +133,11 @@ public class ips {
 			if (SUB == null) {
 				JOptionPane.showMessageDialog(null, "Canceled! Exiting.");
 				System.exit(0);
-			} else if (SUB.substring(0,1).equals("d")||SUB.substring(0,1).equals("D")) {
+			}
+			if (SUB.substring(0,1).equals("d")||SUB.substring(0,1).equals("D")) {
 				debugging = true;
 				JOptionPane.showMessageDialog(null, "Debugging turned on.");
-				setSubnet();
-			} else if (!validate(SUB)) {
-				JOptionPane.showMessageDialog(null, "IP did not fit the correct pattern, retry.");
-				System.out.println("IP did not fit the correct pattern, retry.");
-				setSubnet();
+				return -1;
 			}
 			if (validate(SUB)) {
 				if (debugging) {
@@ -144,46 +145,54 @@ public class ips {
 				}
 				subnet = SUB;
 				System.out.println("Validated.");
+				if (debugging) {
+					System.out.println("Im here");
+				}
+				String inta = (String)JOptionPane.showInputDialog(
+						null,
+						"Enter subnet node begining point. (Last Octet)",
+						"Starting Node", JOptionPane.PLAIN_MESSAGE,
+						null, null,
+						"1");
+				int int1 = Integer.parseInt(inta);
+				if (debugging) {
+					System.err.println("beggining point= " + inta);
+				}
+				String intb = (String)JOptionPane.showInputDialog(
+						null,
+						"Enter subnet node ending point.",
+						"Ending Node",
+						JOptionPane.PLAIN_MESSAGE,
+						null, null,
+						"255");
+				int int2 = Integer.parseInt(intb);
+				if (debugging) {
+					System.err.println("ending point= " + intb);
+				}
+				if (range(int1, int2)) {
+					if (debugging) {
+						System.out.println("im here now");
+					}
+					target1 = int1;
+					target2 = int2;
+					String reverse = new StringBuilder(SUB).reverse().toString();
+					String [] sa = reverse.split("\\.");
+					end = new StringBuilder(sa[0]).reverse().toString();
+					String s = subnet;
+					subnetNoDots = s.replaceAll(".", "");
+					return 5;
+				} 
+			} else if (!validate(SUB)) {
+				JOptionPane.showMessageDialog(null, "IP did not fit the correct pattern, retry.");
+				System.out.println("IP did not fit the correct pattern, retry.");
+				return -1;
 			} 
-			if (debugging) {
-				System.out.println("Im here");
-			}
-			String inta = (String)JOptionPane.showInputDialog(
-					null,
-					"Enter subnet node begining point. (Last Octet)",
-					"Starting Node", JOptionPane.PLAIN_MESSAGE,
-					null, null,
-					"1");
-			int int1 = Integer.parseInt(inta);
-			if (debugging) {
-				System.err.println("beggining point= " + inta);
-			}
-			String intb = (String)JOptionPane.showInputDialog(
-					null,
-					"Enter subnet node ending point.",
-					"Ending Node",
-					JOptionPane.PLAIN_MESSAGE,
-					null, null,
-					"255");
-			int int2 = Integer.parseInt(intb);
-			if (debugging) {
-				System.err.println("ending point= " + intb);
-			}
-			if (range(int1, int2)) {
-				target1 = int1;
-				target2 = int2;
-				String s = subnet;
-				subnetNoDots = s.replaceAll(".", "");
-			} else {
-				JOptionPane.showMessageDialog(null, "Range was incorect, retry.");
-				setSubnet();
-			}
-			
 		} catch  (Exception e) {
 			JOptionPane.showMessageDialog(null, "Failed! , reason: \n" + e.getMessage());
 			e.printStackTrace();
 			System.exit(-1);
 		}
+		return 0;
 	}
 
 	private static boolean range(int int1, int int2) {
@@ -195,13 +204,17 @@ public class ips {
 		Matcher matcher2 = patern.matcher(b);
 		if (matcher1.matches() && matcher2.matches()) {
 			if (int2 < int1) {
-				System.out.println("Fail1");
+				if (debugging) {
+					System.out.println("Fail1");
+				}
 				return false;
 			}
 			System.out.println("range was validated");
 			return true;
 		} else {
-			System.out.println("Fail2");
+			if (debugging) {
+				System.out.println("Fail2");
+			}
 			return false;
 		}
 	}
@@ -216,7 +229,7 @@ public class ips {
 		String p4 = "\t nbtstat -a "+subnet+"%%i ";
 		String p5 = " > %CD%" + SLASH + subnetNoDots +"results"+ SLASH +"%%i.txt";
 		String p6 = ")";
-		String wmic = "\t wmic /Node:"+subnet+end+" Path Win32_NetworkAdapterConfiguration Get DHCPEnabled,DNSHostName,MACAddress,IPAddress";
+		String wmic = "\t wmic /Output:\\results\\%%i.csv /Node:"+subnet+end+" Path Win32_NetworkAdapterConfiguration Get DHCPEnabled,DNSHostName,MACAddress,IPAddress";
 		System.out.println("Writing batch File");
 		try {
 			File results = new File(ROOT + end + SLASH +"results");
@@ -225,7 +238,9 @@ public class ips {
 				results.getParentFile().mkdirs(); //who even knows if this is possible to get into???
 			}
 			File outTest = new File(ROOT + end);
-			System.out.println(ROOT + end);
+			if (debugging) {
+				System.out.println(ROOT + end);
+			}
 			outTest.getParentFile().mkdirs();
 			outTest.mkdirs();
 			if (!outTest.exists() || !outTest.canExecute() || !outTest.canRead() || !outTest.canWrite()) {
@@ -302,10 +317,13 @@ public class ips {
 				}
 			}
 			if (p.exitValue()!=0) {
+				JOptionPane.showMessageDialog(null, "CMD error! \n ExitCode: " +p.exitValue() );
 				System.out.println("Process failed! Error Code: "+p.exitValue());
 				System.exit(p.exitValue());
 			}
-			System.out.println("Killing batch process.");
+			if (debugging) {
+				System.out.println("Killing batch process.");
+			}
 			monitor.destroy();
 			p.destroy();
 		} catch (Exception iTripped) {
@@ -342,28 +360,38 @@ public class ips {
 					outTest.mkdirs();
 					reader = new BufferedReader(new FileReader(s));
 					while ((in = reader.readLine()) != null) {
-						System.err.println(in);
+						if (debugging) {
+							System.err.println(in);
+						}
 						if (in.startsWith("Pinging")) {
-							System.out.println("Pinging");
+							if (debugging) {
+								System.out.println("Pinging");
+							}
 							name = in;
 							name = name.trim();
 							name = name.replaceAll(",", "");
 							name = name.replaceAll("\\{}", " ");
 						} else if (in.startsWith("Reply") || in.contains("Request")) {
-							System.out.println("Reply//Request");
+							if (debugging) {
+								System.out.println("Reply//Request");
+							}
 							result = in;			
 							result = result.trim();
 							result = result.replaceAll("\\}", "");
 							result = result.replaceAll(",", "");
 							result = result.replaceAll("\\{}", " ");
 						} else if (in.contains("Local Area")) {
-							System.out.println("LocalAreaConnection");
+							if (debugging) {
+								System.out.println("LocalAreaConnection");
+							}
 							local = in;
 							local = local.trim();
 							local = local.replaceAll(",", "");
 							local = local.replaceAll("\\{}", " ");
 						} else if (in.contains("Host") || in.contains("NetBIOS")) {
-							System.out.println("NetBIOS");
+							if (debugging) {
+								System.out.println("NetBIOS");
+							}
 							netbios = in;
 							if (!in.contains("Host")) {
 								while (!in.contains("MAC"))  {
@@ -375,35 +403,116 @@ public class ips {
 							netbios = netbios.trim();
 							netbios = netbios.replaceAll(n, " ");
 							netbios = netbios.replaceAll(",", "");
-						} else {
-							System.err.println("COULD NOT PLACE LINE! \n" +in+ " <");
-						} 
-						for (DataRow dat : rows) {
-							if (!name.equals(dat.getName())) {
-								DataRow row = new DataRow(name, result, local, netbios);
-								System.out.println("PLACED: " + row.toStringCommaSeperated());
-								rows.add(row);
-							} else {
-								break;
+						} else { 
+							if (!in.equals("")) {
+								System.err.println("COULD NOT PLACE LINE! \n" +in+ " <");
 							}
+
+						} 
+						if (name != "" && result != "" && local != "" && netbios != "") {
+							DataRow row = new DataRow(name, result, local, netbios);
+							if (debugging) {
+								System.out.println("PLACED: "
+										+ row.toStringCommaSeperated());
+							}
+							rows.add(row);
 						}
-
-
-
 					} //end while
 
 
 				} else if (isWMIC) {
 					//if wmic switch
+					String s = ROOT + end + "results" + SLASH + i + ".txt";
+					System.out.println("results in " + s);
+					File outTest = new File(ROOT + end + SLASH + "test.txt");
+					outTest.createNewFile();
+					outTest.deleteOnExit();
+					outTest.mkdirs();
+					reader = new BufferedReader(new FileReader(s));
+					while ((in = reader.readLine()) != null) {
+						if (debugging) {
+							System.err.println(in);
+						}
+						if (in.startsWith("Pinging")) {
+							if (debugging) {
+								System.out
+								.println("Pinging");
+							}
+							name = in;
+							name = name.trim();
+							name = name.replaceAll(",", "");
+							name = name.replaceAll("\\{}", " ");
+						} else if (in.startsWith("Reply") || in.contains("Request")) {
+							if (debugging) {
+								System.out
+								.println("Reply//Request");
+							}
+							result = in;			
+							result = result.trim();
+							result = result.replaceAll("\\}", "");
+							result = result.replaceAll(",", "");
+							result = result.replaceAll("\\{}", " ");
+						} else if (in.contains("Local Area")) {
+							if (debugging) {
+								System.out
+								.println("LocalAreaConnection");
+							}
+							local = in;
+							local = local.trim();
+							local = local.replaceAll(",", "");
+							local = local.replaceAll("\\{}", " ");
+						} else if (in.contains("Host") || in.contains("NetBIOS")) {
+							if (debugging) {
+								System.out
+								.println("NetBIOS");
+							}
+							netbios = in;
+							if (!in.contains("Host")) {
+								while (!in.contains("MAC"))  {
+									System.err.println(in);
+									in = reader.readLine();
+									netbios += in;
+								}
+							}
+							netbios = netbios.trim();
+							netbios = netbios.replaceAll(n, " ");
+							netbios = netbios.replaceAll(",", "");
+						} else if (!in.equals("")) {
+							while (!in.startsWith("Pinging")) {
+								wmic += in;	
+							}
+						} else { 
+							if (!in.equals("")) {
+								System.err.println("COULD NOT PLACE LINE! \n" +in+ " <");
+							}
+						} 
+						if (name != "" && result != "" && local != "" && netbios != "") {
+							DataRow row = new DataRow(name, result, local, netbios, wmic);
+							System.out.println("PLACED: " + row.toStringCommaSeperated());
+							rows.add(row);
+						}
+					} //end while
+
+
 				} else {
 					JOptionPane.showMessageDialog(null, "Failed! Can't create results file. Error:73");
 					System.exit(73);
 				}
 			}//after looping through results, format to csv
+			rows.remove(1);
+			rows.remove(2);		
+			ArrayList<DataRow> cleaned = new ArrayList<ips.DataRow>();
+			for (DataRow r : rows) {
+				if (!cleaned.contains(r)) {
+					cleaned.add(r);
+				}
+			}
 			File file = new File(ROOT + end + SLASH +"result.csv");
 			file.createNewFile();
 			writer = new FileWriter(file);
-			for (DataRow r : rows) {
+			writer.write("Results: \n");
+			for (DataRow r : cleaned) {
+				writer.append(n);
 				writer.append(r.toStringCommaSeperated());
 				System.out.println(r.toStringCommaSeperated());
 			}
@@ -412,126 +521,6 @@ public class ips {
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.exit(-2);
-		}
-	}
-	public static void writeCSV() {
-		String in = "";
-		String name = "";
-		String result = "";
-		String local = "";
-		String netbios = "";
-		String wmic = "";
-		ArrayList<DataRow> rows = new ArrayList<DataRow>();
-		try {
-			for (int i=target1; i<target2+1; i++) {
-				if (!isWMIC) {
-					String s = ROOT + end + SLASH + "results" + SLASH + i + ".txt";
-					if (debugging) {
-						System.out.println(s);
-					}
-					File outTest = new File(ROOT + end + SLASH + "test.txt");
-					outTest.createNewFile();
-					outTest.mkdirs();
-					outTest.deleteOnExit();
-					reader = new BufferedReader(new FileReader(s));
-					while ((in = reader.readLine()) != null) {
-						if (in.startsWith("Pinging")) {
-							name = in;
-							name = name.trim();
-							name = name.replaceAll(",", "");
-							name = name.replaceAll("\\{}", " ");
-						}
-						if (in.startsWith("Reply") || in.contains("Request")) {
-							result = in;			
-							result = result.trim();
-							result = result.replaceAll("\\}", "");
-							result = result.replaceAll(",", "");
-							result = result.replaceAll("\\{}", " ");
-						}
-						if (in.contains("Local Area")) {
-							local = in;
-							local = local.trim();
-							local = local.replaceAll(",", "");
-							local = local.replaceAll("\\{}", " ");
-						}
-						if (in.contains("Host") || in.contains("NetBIOS")) {
-							netbios = in;
-							int j=0;
-							while (j!=10)  {
-								in = reader.readLine();
-								netbios += in;
-								j++;
-							}
-							netbios = netbios.trim();
-							netbios = netbios.replaceAll(",", "");
-						} 
-						if (name != "" && result != "" && local != "" && netbios != "" && wmic != "") {
-							DataRow row = new DataRow(name, result, local, netbios);
-							rows.add(row);
-
-						}
-					}
-				} else if (isWMIC) {
-					String s = ROOT + end + SLASH + i + ".txt";
-					File outTest = new File(ROOT + end + SLASH + "test.txt");
-					outTest.createNewFile();
-					outTest.mkdirs();
-					reader = new BufferedReader(new FileReader(s));
-					while ((in = reader.readLine()) != null) {
-						if (in.startsWith("Pinging")) {
-							name = in;
-							name = name.trim();
-							name = name.replaceAll(",", "");
-							name = name.replaceAll("\\{}", " ");
-						}
-						if (in.startsWith("Reply") || in.contains("Request")) {
-							result = in;			
-							result = result.trim();
-							result = result.replaceAll("\\}", "");
-							result = result.replaceAll(",", "");
-							result = result.replaceAll("\\{}", " ");
-						}
-						if (in.contains("Local Area")) {
-							local = in;
-							local = local.trim();
-							local = local.replaceAll(",", "");
-							local = local.replaceAll("\\{}", " ");
-						}
-						if (in.equals("wmicstuff here")) {
-							//  wmicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-						}
-						if (in.contains("Host") || in.contains("NetBIOS")) {
-							netbios = in;
-							int j=0;
-							while (j!=10)  {
-								in = reader.readLine();
-								netbios += in;
-								j++;
-							}
-							netbios = netbios.trim();
-							netbios = netbios.replaceAll(",", "");
-						} 
-						if (name != "" && result != "" && local != "" && netbios != "" && wmic != "") {
-							DataRow row = new DataRow(name, result, local, netbios);
-							rows.add(row);
-
-						}
-					}
-				} else {
-					JOptionPane.showMessageDialog(null, "Failed! Can't create results file. Error:73");
-					System.exit(73);
-				}
-				File file = new File(ROOT + end + SLASH +"result.csv");
-				file.createNewFile();
-				writer = new FileWriter(file);
-				for (DataRow r : rows) {
-					writer.append(r.toStringCommaSeperated());
-				}
-				writer.flush();
-				writer.close();
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
 		}
 	}
 	private static class GProgressBar {
@@ -553,11 +542,11 @@ public class ips {
 	}
 	@SuppressWarnings("unused")
 	private static class DataRow implements Comparable<DataRow> {
-		private final String name;
-		private final String reply;
-		private final String local;
-		private final String host;
-		private final String wmic;
+		private String name;
+		private String reply;
+		private String local;
+		private String host;
+		private String wmic;
 
 		public DataRow(String name, String reply, String local, String host, String wmic) {
 			this.name =  name;
@@ -571,6 +560,7 @@ public class ips {
 			this.reply = reply;
 			this.local = local;
 			this.host = host.replaceFirst("-", ",");
+			this.host = this.host.replaceAll("-", "");
 			this.wmic = "";
 		}
 		public String getName() {
@@ -610,7 +600,6 @@ public class ips {
 			s += host;
 			s +=",";
 			s += wmic;
-			s += n;
 			return s;
 		}
 	}
